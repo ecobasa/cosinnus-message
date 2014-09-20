@@ -12,7 +12,7 @@ from django.http import HttpResponseRedirect
 from django_select2 import Select2View, NO_ERR_RESP
 
 from cosinnus.models.group import CosinnusGroup
-from postman.views import ConversationView, MessageView
+from postman.views import ConversationView, MessageView, WriteView
 
 
 class CosinnusMessageView(MessageView):
@@ -36,6 +36,30 @@ class CosinnusConversationView(ConversationView):
         return context
 
 
+class CosinnusMessageWriteView(WriteView):
+    def get_initial(self):
+        initial = super(CosinnusMessageWriteView, self).get_initial()
+
+        if self.request.method == 'GET':
+            recipients = self.kwargs.get('recipients')
+            if recipients:
+                group_names = []
+                user = self.request.user
+                groups = set(CosinnusGroup.objects.get_for_user(user)).union(
+                    CosinnusGroup.objects.public())
+                names = [r.strip() for r in recipients.split(':') if r and not r.isspace()]
+                for name in names:
+                    group_names += [group.name for group in groups if name in group.name.lower()]
+                if group_names:
+                    group_names = ', '.join(group_names)
+                    if 'recipients' in initial:
+                        initial['recipients'] += ', ' + group_names
+                    else:
+                        initial['recipients'] = group_names
+
+        return initial
+
+
 def index(request, *args, **kwargs):
     return HttpResponseRedirect(reverse('postman-index'))
 
@@ -57,8 +81,9 @@ class UserSelect2View(Select2View):
         # users why a search result is found
         users = User.objects.filter(
             Q(first_name__icontains=term) |
-            Q(last_name__icontains=term)
-        )  # | Q(username__icontains=term))
+            Q(last_name__icontains=term)  |
+            Q(username__icontains=term)
+        )
         # Filter all groups the user is a member of, and all public groups for
         # the term.
         # Use CosinnusGroup.objects.get_cached() to search in all groups
@@ -68,7 +93,7 @@ class UserSelect2View(Select2View):
         groups = [group for group in groups if term in group.name.lower()]
 
         # these result sets are what select2 uses to build the choice list
-        results = [("user:" + six.text_type(user.id), "%s %s" % (user.first_name, user.last_name),)
+        results = [("user:" + six.text_type(user.id), "%s" % (user.username),)
                    for user in users]
         results.extend([("group:" + six.text_type(group.id), "[[ %s ]]" % (group.name),)
                        for group in groups])

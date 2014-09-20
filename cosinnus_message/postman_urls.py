@@ -88,8 +88,12 @@ Refer to documentation.
 """
 from __future__ import unicode_literals
 from cosinnus_message.forms import CustomReplyForm, CustomWriteForm
-from cosinnus_message.views import UserSelect2View, CosinnusMessageView,\
+from .views import (
+    UserSelect2View,
+    CosinnusMessageView,
+    CosinnusMessageWriteView,
     CosinnusConversationView
+)
 
 try:
     from django.conf.urls import patterns, url  # django 1.4
@@ -104,24 +108,28 @@ from postman.views import (InboxView, SentView, ArchivesView, TrashView,
 
 
 urlpatterns = patterns('',
+    url(r'^$', RedirectView.as_view(url='posteingang/'), name='postman-index'),
     url(r'^ajax/userselect/$', UserSelect2View.as_view(), name='user_select2_view'),
+
+    url(r'^nachricht/(?P<message_id>[\d]+)/$', CosinnusMessageView.as_view(), name='postman_view'),
+    url(r'^nachricht/t/(?P<thread_id>[\d]+)/$', CosinnusConversationView.as_view(), name='postman_view_conversation'),
 
     url(r'^posteingang/(?:(?P<option>'+OPTIONS+')/)?$', InboxView.as_view(), name='postman_inbox'),
     url(r'^gesendet/(?:(?P<option>'+OPTIONS+')/)?$', SentView.as_view(), name='postman_sent'),
-    url(r'^archiv/(?:(?P<option>'+OPTIONS+')/)?$', ArchivesView.as_view(), name='postman_archives'),
+    url(r'^archives/(?:(?P<option>'+OPTIONS+')/)?$', ArchivesView.as_view(), name='postman_archives'),
     url(r'^papierkorb/(?:(?P<option>'+OPTIONS+')/)?$', TrashView.as_view(), name='postman_trash'),
     #url(r'^neu/(?:(?P<recipients>[\w.@+-:]+)/)?$', WriteView.as_view(), name='postman_write'),
     #url(r'^reply/(?P<message_id>[\d]+)/$', ReplyView.as_view(), name='postman_reply'),
+
+    url(r'^archive/$', ArchiveView.as_view(), name='postman_archive'),
+    url(r'^delete/$', DeleteView.as_view(), name='postman_delete'),
+    url(r'^undelete/$', UndeleteView.as_view(), name='postman_undelete'),
+
     url(r'^antworten/(?P<message_id>[\d:]+)/$',
         ReplyView.as_view(form_class=CustomReplyForm),
         name='postman_reply'),
-    url(r'^neu/(?:(?P<recipients>[\d]+)/)?$',
-        WriteView.as_view(form_classes=(CustomWriteForm, CustomWriteForm)),
+    url(r'^neu/(?:(?P<recipients>[^/]+)/)?$',
+        CosinnusMessageWriteView.as_view(
+            form_classes=(CustomWriteForm, CustomWriteForm)),
         name='postman_write'),
-    url(r'^nachricht/(?P<message_id>[\d]+)/$', CosinnusMessageView.as_view(), name='postman_view'),
-    url(r'^nachricht/t/(?P<thread_id>[\d]+)/$', CosinnusConversationView.as_view(), name='postman_view_conversation'),
-    url(r'^archiv/$', ArchiveView.as_view(), name='postman_archive'),
-    url(r'^loeschen/$', DeleteView.as_view(), name='postman_delete'),
-    url(r'^wiederherstellen/$', UndeleteView.as_view(), name='postman_undelete'),
-    url(r'^$', RedirectView.as_view(url='posteingang/'), name='postman-index'),
 )
