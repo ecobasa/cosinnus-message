@@ -37,25 +37,36 @@ class CosinnusConversationView(ConversationView):
 
 
 class CosinnusMessageWriteView(WriteView):
+    def get_groups(self, user):
+        if user.is_staff or user.is_superuser:
+                groups = CosinnusGroup.objects.all()
+        else:
+                user_groups = CosinnusGroup.objects.get_for_user(user)
+                public_groups = CosinnusGroup.objects.public()
+                groups = set(user_groups).union(public_groups)
+
+        groups = [group.name.lower() for group in groups]
+        return groups
+
+    def get_recipient_groups(self, recipients, groups):
+        recipient_groups = []
+        recipients = [r.strip()
+            for r in recipients.split(':') if r and not r.isspace()]
+        for name in recipients:
+            # important to append non-lowered name to recipients
+            if name.lower() in groups:
+              recipient_groups.append(name)
+
+        return recipient_groups
+
     def get_initial(self):
         initial = super(CosinnusMessageWriteView, self).get_initial()
 
         if self.request.method == 'GET':
             recipients = self.kwargs.get('recipients')
             if recipients:
-                user = self.request.user
-                groups = set(CosinnusGroup.objects.get_for_user(user)).union(
-                    CosinnusGroup.objects.public())
-                groups = [group.name.lower() for group in groups]
-
-                recipient_groups = []
-                recipients = [r.strip()
-                    for r in recipients.split(':') if r and not r.isspace()]
-                for name in recipients:
-                    # important to append non-lowered name to recipients
-                    if name.lower() in groups:
-                      recipient_groups.append(name)
-
+                groups = self.get_groups(self.request.user)
+                recipient_groups = self.get_recipient_groups(recipients, groups)
                 if recipient_groups:
                     recipient_groups = ', '.join(recipient_groups)
                     if 'recipients' in initial:
