@@ -39,11 +39,11 @@ class CosinnusConversationView(ConversationView):
 class CosinnusMessageWriteView(WriteView):
     def get_groups(self, user):
         if user.is_staff or user.is_superuser:
-                groups = CosinnusGroup.objects.all()
+            groups = CosinnusGroup.objects.get_cached()
         else:
-                user_groups = CosinnusGroup.objects.get_for_user(user)
-                public_groups = CosinnusGroup.objects.public()
-                groups = set(user_groups).union(public_groups)
+            user_groups = CosinnusGroup.objects.get_for_user(user)
+            public_groups = CosinnusGroup.objects.public()
+            groups = set(user_groups).union(public_groups)
 
         groups = [group.name.lower() for group in groups]
         return groups
@@ -91,6 +91,17 @@ class UserSelect2View(Select2View):
         if not user.is_authenticated():
             raise PermissionDenied
 
+    def get_groups(self, user, term):
+        if user.is_staff or user.is_superuser:
+            groups = CosinnusGroup.objects.get_cached()
+        else:
+            user_groups = CosinnusGroup.objects.get_for_user(user)
+            public_groups = CosinnusGroup.objects.public()
+            groups = set(user_groups).union(public_groups)
+
+        groups = [group for group in groups if term in group.name.lower()]
+        return groups
+
     def get_results(self, request, term, page, context):
         term = term.lower()
 
@@ -101,17 +112,15 @@ class UserSelect2View(Select2View):
             Q(last_name__icontains=term)  |
             Q(username__icontains=term)
         )
+        # these result sets are what select2 uses to build the choice list
+        results = [("user:" + six.text_type(user.id), "%s" % (user.username),)
+                   for user in users]
+
         # Filter all groups the user is a member of, and all public groups for
         # the term.
         # Use CosinnusGroup.objects.get_cached() to search in all groups
         # instead
-        groups = set(CosinnusGroup.objects.get_for_user(request.user)).union(
-            CosinnusGroup.objects.public())
-        groups = [group for group in groups if term in group.name.lower()]
-
-        # these result sets are what select2 uses to build the choice list
-        results = [("user:" + six.text_type(user.id), "%s" % (user.username),)
-                   for user in users]
+        groups = self.get_groups(request.user, term)
         results.extend([("group:" + six.text_type(group.id), "[[ %s ]]" % (group.name),)
                        for group in groups])
 
