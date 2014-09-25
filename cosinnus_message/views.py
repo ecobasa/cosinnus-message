@@ -43,19 +43,25 @@ class CosinnusMessageWriteView(WriteView):
         if self.request.method == 'GET':
             recipients = self.kwargs.get('recipients')
             if recipients:
-                group_names = []
                 user = self.request.user
                 groups = set(CosinnusGroup.objects.get_for_user(user)).union(
                     CosinnusGroup.objects.public())
-                names = [r.strip() for r in recipients.split(':') if r and not r.isspace()]
-                for name in names:
-                    group_names += [group.name for group in groups if name in group.name.lower()]
-                if group_names:
-                    group_names = ', '.join(group_names)
+                groups = [group.name.lower() for group in groups]
+
+                recipient_groups = []
+                recipients = [r.strip()
+                    for r in recipients.split(':') if r and not r.isspace()]
+                for name in recipients:
+                    # important to append non-lowered name to recipients
+                    if name.lower() in groups:
+                      recipient_groups.append(name)
+
+                if recipient_groups:
+                    recipient_groups = ', '.join(recipient_groups)
                     if 'recipients' in initial:
-                        initial['recipients'] += ', ' + group_names
+                        initial['recipients'] += ', ' + recipient_groups
                     else:
-                        initial['recipients'] = group_names
+                        initial['recipients'] = recipient_groups
 
         return initial
 
